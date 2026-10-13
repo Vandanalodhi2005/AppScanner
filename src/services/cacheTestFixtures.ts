@@ -21,14 +21,14 @@ export async function createCacheTestFixtures(): Promise<{ createdCount: number;
   const file1 = new File(fixtureDir, 'cache_sample_1.tmp');
   if (!file1.exists) {
     file1.create();
-    file1.write('ScannerApp temporary cache test artifact 1.\n'.repeat(40));
   }
+  file1.write('ScannerApp temporary cache test artifact 1.\n'.repeat(40));
 
   const file2 = new File(fixtureDir, 'network_cache_2.log');
   if (!file2.exists) {
     file2.create();
-    file2.write('ScannerApp network cache log data artifact 2.\n'.repeat(60));
   }
+  file2.write('ScannerApp network cache log data artifact 2.\n'.repeat(60));
 
   const nestedDir = new Directory(fixtureDir, 'nested_thumbs');
   if (!nestedDir.exists) {
@@ -38,11 +38,27 @@ export async function createCacheTestFixtures(): Promise<{ createdCount: number;
   const file3 = new File(nestedDir, 'thumb_3.bin');
   if (!file3.exists) {
     file3.create();
-    file3.write('Binary thumbnail mock stream test artifact 3.\n'.repeat(100));
   }
+  file3.write('Binary thumbnail mock stream test artifact 3.\n'.repeat(100));
 
   return {
     createdCount: 3,
     dirUri: fixtureDir.uri,
   };
+}
+
+/**
+ * Removes test fixture files and folder if present.
+ */
+export async function removeCacheTestFixtures(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    const cacheDir = Paths.cache;
+    const fixtureDir = new Directory(cacheDir, 'test-scanner-fixtures');
+    if (fixtureDir.exists) {
+      fixtureDir.delete();
+    }
+  } catch {
+    // Ignore cleanup failure
+  }
 }

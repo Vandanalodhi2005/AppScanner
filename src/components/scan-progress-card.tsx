@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
@@ -33,7 +33,7 @@ type ScanProgressCardProps = {
 
 export function ScanProgressCard({ progress, folderName, onCancel }: ScanProgressCardProps) {
   const { colors } = useTheme();
-  const sweep = useRef(new Animated.Value(0)).current;
+  const [sweep] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const anim = Animated.loop(

@@ -195,7 +195,6 @@ export async function scanAppCache(options?: {
 export async function cleanAppCacheFiles(
   selectedItems: AppCacheCandidate[]
 ): Promise<CleanupSummaryReport> {
-  const startedAt = Date.now();
   const cacheDir = Paths.cache;
   const rootUri = cacheDir.uri.endsWith('/') ? cacheDir.uri : `${cacheDir.uri}/`;
 
@@ -206,20 +205,49 @@ export async function cleanAppCacheFiles(
   const itemReports: CleanupItemReport[] = [];
 
   for (const candidate of selectedItems) {
-    // 1. Validate target is strictly within app cache root
-    if (!candidate.uri.startsWith(rootUri) || candidate.uri === rootUri) {
+    // 1. Validate target is strictly within app cache root and contains no traversal
+    if (
+      !candidate.uri.startsWith(rootUri) ||
+      candidate.uri === rootUri ||
+      candidate.uri.length <= rootUri.length ||
+      candidate.relativePath.includes('..')
+    ) {
       skippedCount += 1;
       itemReports.push({
         id: candidate.id,
         relativePath: candidate.relativePath,
         status: 'skipped',
         sizeBytes: 0,
-        message: 'Security validation failed: Target is outside app cache root.',
+        message: 'Security validation failed: Target is outside app cache root or contains path traversal segments.',
       });
       continue;
     }
 
-    // 2. Instantiate and inspect target
+    // 2. Safety check: ensure target is strictly a regular file and NOT a directory.
+    // Never delete the cache root or subdirectories.
+    try {
+      const dirCheck = new Directory(candidate.uri);
+      if (dirCheck.exists) {
+        skippedCount += 1;
+        itemReports.push({
+          id: candidate.id,
+          relativePath: candidate.relativePath,
+          status: 'skipped',
+          sizeBytes: 0,
+          message: 'Security validation failed: Target is a directory. Only individual cache files can be removed.',
+        });
+        continue;
+      }
+    } catch {
+      // Non-directory or cannot instantiate as directory
+    }
+
+    // 3. Instantiate and inspect target file.
+    // Note on Expo FileSystem API capabilities:
+    // expo-file-system v57 does not expose a POSIX isSymbolicLink() API in JavaScript.
+    // To ensure maximum safety, we verify the canonical URI prefix matches Paths.cache,
+    // verify the target is not a directory, and verify targetFile.exists (which on Android
+    // calls File.isFile() under the hood).
     const targetFile = new File(candidate.uri);
     if (!targetFile.exists) {
       skippedCount += 1;
@@ -228,7 +256,7 @@ export async function cleanAppCacheFiles(
         relativePath: candidate.relativePath,
         status: 'skipped',
         sizeBytes: 0,
-        message: 'File disappeared before cleanup.',
+        message: 'File disappeared or is inaccessible before cleanup.',
       });
       continue;
     }

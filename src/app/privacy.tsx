@@ -144,7 +144,7 @@ export default function PrivacyScreen() {
           <Text style={[styles.cardTitle, { color: colors.heading }]}>5. Android Permissions</Text>
         </View>
         <Text style={[styles.bodyText, { color: colors.secondary }]}>
-          The application requests storage access exclusively on-demand through Android's system folder picker.
+          The application requests storage access exclusively on-demand through Android&apos;s system folder picker.
         </Text>
         <Text style={[styles.bodyText, { color: colors.secondary, marginTop: 8 }]}>
           How to revoke: You can inspect and revoke folder authorizations or app permissions at any time via Android Settings → Apps → ScannerApp → Permissions.

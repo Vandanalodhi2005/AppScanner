@@ -49,7 +49,7 @@ export function SmartScanCard({
       </View>
 
       <Text style={[styles.noticeText, { backgroundColor: colors.surfaceAlt, color: colors.secondary }]}>
-        Instantly inspects ScannerApp's own temporary cache files without requiring a folder picker prompt.
+        {"Instantly inspects ScannerApp's own temporary cache files without requiring a folder picker prompt."}
       </Text>
 
       {/* Primary 1-tap Auto Scan */}

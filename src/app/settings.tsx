@@ -7,7 +7,7 @@ import Constants from 'expo-constants';
 import { ScreenLayout } from '@/components/screen-layout';
 import { SectionHeader } from '@/components/section-header';
 import { useTheme } from '@/context/theme-context';
-import { spacing, type ThemeMode } from '@/constants/ui';
+import { spacing } from '@/constants/ui';
 
 type ToggleRowProps = {
   title: string;
@@ -145,6 +145,25 @@ export default function SettingsScreen() {
             </Text>
           </Pressable>
         </View>
+      </View>
+
+      {/* Authorized Storage Section (v2) */}
+      <SectionHeader title="Authorized Storage Locations" compact />
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.infoRowStatic}>
+          <View style={styles.preferenceCopy}>
+            <Text style={[styles.rowTitle, { color: colors.heading }]}>Scoped Storage Permissions</Text>
+            <Text style={[styles.rowSubtitle, { color: colors.secondary }]}>
+              ScannerApp reuses SAF permissions granted by you, eliminating repeated folder pickers.
+            </Text>
+          </View>
+        </View>
+        <View style={[styles.divider, { backgroundColor: colors.surfaceAlt }]} />
+        <InfoRow
+          title="Manage Authorized Folders"
+          subtitle="View or add folders on the Dashboard"
+          onPress={() => router.navigate('/')}
+        />
       </View>
 
       {/* About & Privacy Section with Dedicated Screen Navigation */}

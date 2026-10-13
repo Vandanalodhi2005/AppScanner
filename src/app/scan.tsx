@@ -34,8 +34,8 @@ function truncatePath(path: string, maxLen = 42): string {
 // ─── animated indeterminate progress bar ────────────────────────────────────
 function ScanProgressBar({ itemsVisited }: { itemsVisited: number }) {
   const { colors } = useTheme();
-  const sweep = useRef(new Animated.Value(0)).current;
-  const pulse = useRef(new Animated.Value(1)).current;
+  const [sweep] = useState(() => new Animated.Value(0));
+  const [pulse] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     Animated.loop(

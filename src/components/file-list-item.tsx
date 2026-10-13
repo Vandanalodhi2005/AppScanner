@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 
 import { useTheme } from '@/context/theme-context';
 import type { ScannedEntry } from '@/types/storage';
@@ -14,9 +15,9 @@ export function FileListItem({ item, onToggle }: FileListItemProps) {
 
   return (
     <Pressable
-      accessibilityRole="checkbox"
+      accessibilityRole={isFile ? 'checkbox' : 'none'}
       accessibilityLabel={`${item.name}, ${isFile ? 'file' : 'folder'}, ${formatBytes(item.sizeBytes)}`}
-      accessibilityState={{ checked: item.selected, disabled: !isFile }}
+      accessibilityState={isFile ? { checked: item.selected } : { disabled: true }}
       disabled={!isFile}
       onPress={() => onToggle(item.id)}
       style={({ pressed }) => [
@@ -27,15 +28,28 @@ export function FileListItem({ item, onToggle }: FileListItemProps) {
         },
         pressed && styles.pressed,
       ]}>
-      <View
-        style={[
-          styles.checkbox,
-          { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
-          item.selected && { borderColor: colors.primary, backgroundColor: colors.primary },
-          !isFile && styles.checkboxDisabled,
-        ]}>
-        {item.selected ? <Text style={styles.check}>✓</Text> : null}
-      </View>
+      {isFile ? (
+        <View
+          style={[
+            styles.checkbox,
+            { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
+            item.selected && { borderColor: colors.primary, backgroundColor: colors.primary },
+          ]}>
+          {item.selected ? <Text style={styles.check}>✓</Text> : null}
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.folderIconBox,
+            { borderColor: colors.border, backgroundColor: colors.tintBlue ?? colors.surfaceAlt },
+          ]}>
+          <SymbolView
+            name={{ android: 'folder', ios: 'folder.fill', web: 'folder' }}
+            size={13}
+            tintColor={colors.primary}
+          />
+        </View>
+      )}
       <View style={styles.fileInfo}>
         <Text numberOfLines={1} style={[styles.name, { color: colors.heading }]}>
           {item.name}
@@ -86,13 +100,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  folderIconBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   checkboxDisabled: {
     opacity: 0.35,
   },
   check: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
+    textAlign: 'center',
+    includeFontPadding: false,
+    lineHeight: 14,
   },
   fileInfo: {
     flex: 1,

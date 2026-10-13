@@ -4,6 +4,7 @@ import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native
 import { SymbolView } from 'expo-symbols';
 
 import { AppHeader } from '@/components/app-header';
+import { AuthorizedLocationsCard } from '@/components/authorized-locations-card';
 import { CategoryCard } from '@/components/category-card';
 import { RecentScanCard } from '@/components/recent-scan-card';
 import { ScanProgressCard } from '@/components/scan-progress-card';
@@ -18,8 +19,16 @@ import {
   getLastAppCacheScanResult,
   scanAppCache,
 } from '@/services/appCacheScanner';
+import {
+  refreshLocationsStatus,
+} from '@/services/authorizedLocations';
+import {
+  scanAllAuthorizedLocations,
+  scanAuthorizedLocation,
+} from '@/services/authorizedStorageScanner';
 import { getCurrentScanResult, setCurrentScanResult } from '@/services/scanSession';
 import type { AppCacheScanResult } from '@/types/appCache';
+import type { AuthorizedLocation } from '@/types/authorizedLocations';
 import type { ScanProgress as ScanProgressData, ScanResult } from '@/types/storage';
 
 const LARGE_FILE_THRESHOLD_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -45,13 +54,12 @@ export default function DashboardScreen() {
   const [cacheResult, setCacheResult] = useState<AppCacheScanResult | null>(
     () => getLastAppCacheScanResult()
   );
+  const [authorizedLocations, setAuthorizedLocations] = useState<AuthorizedLocation[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const cancelRequested = useRef(false);
 
   useEffect(() => {
-    // Keep local states in sync on mount
-    setScanResult(getCurrentScanResult());
-    setCacheResult(getLastAppCacheScanResult());
+    refreshLocationsStatus().then(setAuthorizedLocations);
   }, []);
 
   // ─── 1. Automatic App-Owned Cache Scanner ─────────────────────────────
@@ -74,11 +82,7 @@ export default function DashboardScreen() {
     setCacheResult(result);
 
     if (result.status === 'completed') {
-      if (result.totalCandidateCount > 0) {
-        router.navigate('/cleanup');
-      } else {
-        setNotice('Auto Scan completed: ScannerApp internal cache is already clean.');
-      }
+      router.navigate('/cleanup');
     } else if (result.status === 'failed') {
       setNotice(`Auto Scan failed: ${result.errorMessage || 'Unknown error'}`);
     }
@@ -129,6 +133,85 @@ export default function DashboardScreen() {
     }
   };
 
+  // ─── 3. Authorized Storage Scanner v2 (Persisted SAF Access) ──────────
+  const handleScanLocation = async (loc: AuthorizedLocation) => {
+    if (phase !== 'idle') return;
+
+    cancelRequested.current = false;
+    setNotice(null);
+    setProgress(null);
+    setCurrentFolder(loc.name);
+    setPhase('folder_scanning');
+
+    const res = await scanAuthorizedLocation(loc, {
+      onProgress: setProgress,
+      shouldCancel: () => cancelRequested.current,
+    });
+
+    setPhase('idle');
+    const fullResult: ScanResult = {
+      status: res.status,
+      rootUri: res.rootUri,
+      rootName: res.locationName,
+      entries: res.entries,
+      fileCount: res.fileCount,
+      directoryCount: res.directoryCount,
+      totalReadableBytes: res.totalReadableBytes,
+      issues: res.issues,
+      issueCount: res.issueCount,
+      startedAt: res.startedAt,
+      finishedAt: res.finishedAt,
+    };
+    setCurrentScanResult(fullResult);
+    setScanResult(fullResult);
+    refreshLocationsStatus().then(setAuthorizedLocations);
+
+    if (res.status === 'failed') {
+      setNotice(`Scan could not complete: ${res.issues[0]?.message || 'Unknown issue'}`);
+    } else {
+      router.navigate('/results');
+    }
+  };
+
+  const handleScanAllAuthorized = async () => {
+    if (phase !== 'idle') return;
+
+    cancelRequested.current = false;
+    setNotice(null);
+    setProgress(null);
+    setCurrentFolder('Authorized Locations');
+    setPhase('folder_scanning');
+
+    const res = await scanAllAuthorizedLocations({
+      onProgress: setProgress,
+      shouldCancel: () => cancelRequested.current,
+    });
+
+    setPhase('idle');
+    const fullResult: ScanResult = {
+      status: res.status,
+      rootUri: 'multi://authorized-locations',
+      rootName: `Authorized Storage (${res.locationsScanned} folders)`,
+      entries: res.entries,
+      fileCount: res.fileCount,
+      directoryCount: res.directoryCount,
+      totalReadableBytes: res.totalReadableBytes,
+      issues: res.issues,
+      issueCount: res.issueCount,
+      startedAt: res.startedAt,
+      finishedAt: res.finishedAt,
+    };
+    setCurrentScanResult(fullResult);
+    setScanResult(fullResult);
+    refreshLocationsStatus().then(setAuthorizedLocations);
+
+    if (res.locationsRevoked > 0) {
+      setNotice(`${res.locationsRevoked} location(s) had permissions revoked and were skipped.`);
+    }
+
+    router.navigate('/results');
+  };
+
   const handleCancelScan = () => {
     cancelRequested.current = true;
   };
@@ -166,6 +249,41 @@ export default function DashboardScreen() {
         disabled={phase !== 'idle'}
         phase={phase}
       />
+
+      {/* ─── 3b. Windows PC Cleaner Banner ────────────────────────── */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open Windows PC Cleaner"
+        onPress={() => router.navigate('/windows-cleaner' as never)}
+        style={({ pressed }) => [
+          styles.windowsBanner,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          pressed && styles.pressed,
+        ]}>
+        <View style={[styles.windowsBannerIcon, { backgroundColor: colors.tintCyan }]}>
+          <SymbolView
+            name={{ android: 'computer', ios: 'desktopcomputer', web: 'computer' }}
+            tintColor={colors.cyan}
+            size={20}
+          />
+        </View>
+        <View style={styles.windowsBannerInfo}>
+          <Text style={[styles.windowsBannerTitle, { color: colors.heading }]}>
+            Windows PC Cleaner
+          </Text>
+          <Text style={[styles.windowsBannerSub, { color: colors.secondary }]}>
+            {Platform.OS === 'windows'
+              ? 'Scan Temp, browser cache & Windows junk'
+              : 'Tap to view Windows desktop cleaning tools'}
+          </Text>
+        </View>
+        <View style={[styles.windowsBannerBadge, { backgroundColor: colors.tintCyan }]}>
+          <Text style={[styles.windowsBannerBadgeText, { color: colors.cyan }]}>
+            {Platform.OS === 'windows' ? 'Scan PC →' : 'View →'}
+          </Text>
+        </View>
+      </Pressable>
+
 
       {/* ─── 4. Live Scan Progress Card (When Active) ──────────────── */}
       {(phase === 'folder_scanning' || phase === 'auto_scanning') && (
@@ -226,6 +344,17 @@ export default function DashboardScreen() {
         </Pressable>
       ) : null}
 
+      {/* ─── 5b. Authorized Storage Locations (v2) ────────────────── */}
+      <AuthorizedLocationsCard
+        locations={authorizedLocations}
+        onLocationsChange={() => {
+          refreshLocationsStatus().then(setAuthorizedLocations);
+        }}
+        onScanLocation={handleScanLocation}
+        onScanAll={handleScanAllAuthorized}
+        disabled={phase !== 'idle'}
+      />
+
       {/* ─── 6. Storage Overview (Folder Scan Results) ─────────────── */}
       <View style={styles.sectionHeaderRow}>
         <SectionHeader
@@ -255,8 +384,10 @@ export default function DashboardScreen() {
           accent={colors.primary}
           tintBg={colors.tintBlue}
           badgeLabel={
-            cacheResult && cacheResult.totalCandidateCount > 0
-              ? `${cacheResult.totalCandidateCount} items`
+            cacheResult
+              ? cacheResult.totalCandidateCount > 0
+                ? `${cacheResult.totalCandidateCount} items`
+                : 'Clean'
               : 'Auto'
           }
           statusLabel={
@@ -266,7 +397,13 @@ export default function DashboardScreen() {
                 )}`
               : 'Tap to Auto Scan'
           }
-          onPress={handleAutoScan}
+          onPress={() => {
+            if (cacheResult) {
+              router.navigate('/cleanup');
+            } else {
+              handleAutoScan();
+            }
+          }}
         />
 
         {/* Other Apps' Cache */}
@@ -432,5 +569,44 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
+  },
+
+  // Windows PC Cleaner banner
+  windowsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: spacing.lg,
+  },
+  windowsBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  windowsBannerInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  windowsBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  windowsBannerSub: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  windowsBannerBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  windowsBannerBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

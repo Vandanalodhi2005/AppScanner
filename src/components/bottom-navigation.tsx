@@ -4,11 +4,12 @@ import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 
 import { useTheme } from '@/context/theme-context';
 
-export type TabKey = 'home' | 'scan' | 'history' | 'settings';
+export type TabKey = 'home' | 'scan' | 'history' | 'settings' | 'windows-cleaner';
 
-const tabs: { key: TabKey; label: string; route: '/' | '/scan' | '/history' | '/settings'; icon: SymbolViewProps['name'] }[] = [
+const tabs: { key: TabKey; label: string; route: string; icon: SymbolViewProps['name'] }[] = [
   { key: 'home', label: 'Home', route: '/', icon: { android: 'home', ios: 'house.fill', web: 'home' } },
   { key: 'scan', label: 'Scan', route: '/scan', icon: { android: 'manage_search', ios: 'viewfinder', web: 'manage_search' } },
+  { key: 'windows-cleaner', label: 'PC Clean', route: '/windows-cleaner', icon: { android: 'computer', ios: 'desktopcomputer', web: 'computer' } },
   { key: 'history', label: 'History', route: '/history', icon: { android: 'history', ios: 'clock.arrow.circlepath', web: 'history' } },
   { key: 'settings', label: 'Settings', route: '/settings', icon: { android: 'settings', ios: 'gearshape.fill', web: 'settings' } },
 ];
@@ -37,7 +38,7 @@ export function BottomNavigation({ activeTab }: BottomNavigationProps) {
             accessibilityRole="button"
             accessibilityLabel={`${tab.label}${active ? ', selected' : ''}`}
             accessibilityState={{ selected: active }}
-            onPress={() => router.navigate(tab.route)}
+            onPress={() => router.navigate(tab.route as never)}
             style={({ pressed }) => [
               styles.tab,
               active && { backgroundColor: colors.tintBlue },
